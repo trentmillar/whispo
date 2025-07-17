@@ -42,4 +42,8 @@ export const router: ReturnType<typeof createBrowserRouter> =
       path: "/panel",
       lazy: () => import("./pages/panel"),
     },
+    {
+      path: "/overlay",
+      lazy: () => import("./pages/overlay"),
+    },
   ])

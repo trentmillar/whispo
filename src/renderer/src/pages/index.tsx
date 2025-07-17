@@ -142,6 +142,13 @@ export function Component() {
                         <div className="flex shrink-0 gap-2 text-sm">
                           <PlayButton id={item.id} />
 
+                          {item.aiResponse && (
+                            <AiResponseButton 
+                              question={item.transcript}
+                              response={item.aiResponse}
+                            />
+                          )}
+
                           <DeleteButton id={item.id} />
                         </div>
                       </div>
@@ -210,6 +217,29 @@ const PlayButton = ({ id }: { id: string }) => {
         )}
       ></span>
     </button>
+  )
+}
+
+const AiResponseButton = ({ question, response }: { question: string; response: string }) => {
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={0} disableHoverableContent>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={itemButtonVariants()}
+            onClick={async () => {
+              await tipcClient.showAiResponse({ question, response })
+            }}
+          >
+            <span className="i-mingcute-ai-line"></span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Show AI Response
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 

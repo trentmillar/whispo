@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(./scripts/build-rs.sh:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run:*)",
+      "Bash(ls:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

@@ -1,6 +1,6 @@
 import fs from "fs"
 import { getRendererHandlers, tipc } from "@egoist/tipc/main"
-import { showPanelWindow, WINDOWS } from "./window"
+import { showPanelWindow, WINDOWS, showOverlayWindow } from "./window"
 import {
   app,
   clipboard,
@@ -154,49 +154,76 @@ export const router = {
     .action(async ({ input }) => {
       fs.mkdirSync(recordingsFolder, { recursive: true })
 
-      const config = configStore.get()
+      // Reload config to ensure we have the latest
+      const config = configStore.reload()
+      console.log("STT Config:", {
+        sttProviderId: config.sttProviderId,
+        hasGroqKey: !!config.groqApiKey,
+        hasOpenaiKey: !!config.openaiApiKey
+      })
+      
       const form = new FormData()
+      const blob = new Blob([input.recording], { type: "audio/webm" })
       form.append(
         "file",
-        new File([input.recording], "recording.webm", { type: "audio/webm" }),
+        blob,
+        "recording.webm"
       )
       form.append(
         "model",
         config.sttProviderId === "groq" ? "whisper-large-v3" : "whisper-1",
       )
       form.append("response_format", "json")
+      
+      console.log("Form data:", {
+        fileSize: blob.size,
+        fileType: blob.type,
+        model: config.sttProviderId === "groq" ? "whisper-large-v3" : "whisper-1"
+      })
 
       const groqBaseUrl = config.groqBaseUrl || "https://api.groq.com/openai/v1"
       const openaiBaseUrl = config.openaiBaseUrl || "https://api.openai.com/v1"
 
-      const transcriptResponse = await fetch(
-        config.sttProviderId === "groq"
-          ? `${groqBaseUrl}/audio/transcriptions`
-          : `${openaiBaseUrl}/audio/transcriptions`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.sttProviderId === "groq" ? config.groqApiKey : config.openaiApiKey}`,
-          },
-          body: form,
+      const apiKey = config.sttProviderId === "groq" ? config.groqApiKey : config.openaiApiKey
+      const apiUrl = config.sttProviderId === "groq"
+        ? `${groqBaseUrl}/audio/transcriptions`
+        : `${openaiBaseUrl}/audio/transcriptions`
+        
+      console.log("Using STT API:", {
+        url: apiUrl,
+        provider: config.sttProviderId,
+        keyLength: apiKey?.length || 0,
+        keyPrefix: apiKey?.substring(0, 10) + "..."
+      })
+
+      const transcriptResponse = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
         },
-      )
+        body: form,
+      })
 
       if (!transcriptResponse.ok) {
-        const message = `${transcriptResponse.statusText} ${(await transcriptResponse.text()).slice(0, 300)}`
+        const errorText = await transcriptResponse.text()
+        console.log("Full error response:", errorText)
+        console.log("Response headers:", Object.fromEntries(transcriptResponse.headers.entries()))
+        const message = `${transcriptResponse.statusText} ${errorText.slice(0, 300)}`
 
         throw new Error(message)
       }
 
       const json: { text: string } = await transcriptResponse.json()
-      const transcript = await postProcessTranscript(json.text)
+      const originalTranscript = json.text
+      const aiResponse = await postProcessTranscript(originalTranscript)
 
       const history = getRecordingHistory()
       const item: RecordingHistoryItem = {
         id: Date.now().toString(),
         createdAt: Date.now(),
         duration: input.duration,
-        transcript,
+        transcript: originalTranscript,
+        aiResponse: aiResponse !== originalTranscript ? aiResponse : undefined,
       }
       history.push(item)
       saveRecordingsHitory(history)
@@ -213,15 +240,24 @@ export const router = {
         ).refreshRecordingHistory.send()
       }
 
+      // Hide panel window
       const panel = WINDOWS.get("panel")
       if (panel) {
         panel.hide()
       }
 
-      // paste
-      clipboard.writeText(transcript)
+      // Copy and paste the original transcript (not the AI response)
+      clipboard.writeText(originalTranscript)
       if (isAccessibilityGranted()) {
-        await writeText(transcript)
+        await writeText(originalTranscript)
+      }
+
+      // If there's an AI response, show the overlay automatically
+      if (aiResponse && aiResponse !== originalTranscript) {
+        showOverlayWindow({
+          question: originalTranscript,
+          response: aiResponse
+        })
       }
     }),
 
@@ -260,6 +296,30 @@ export const router = {
         state.isRecording = false
       }
       updateTrayIcon()
+    }),
+
+  confirmTranscript: t.procedure
+    .input<{ transcript: string }>()
+    .action(async ({ input }) => {
+      const overlay = WINDOWS.get("overlay")
+      if (overlay) {
+        overlay.hide()
+      }
+
+      // paste
+      clipboard.writeText(input.transcript)
+      if (isAccessibilityGranted()) {
+        await writeText(input.transcript)
+      }
+    }),
+
+  showAiResponse: t.procedure
+    .input<{ question: string; response: string }>()
+    .action(async ({ input }) => {
+      showOverlayWindow({
+        question: input.question,
+        response: input.response
+      })
     }),
 }
 

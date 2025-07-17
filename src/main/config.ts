@@ -11,8 +11,11 @@ export const configPath = path.join(dataFolder, "config.json")
 
 const getConfig = () => {
   try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8")) as Config
-  } catch {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as Config
+    console.log("Loaded config from disk:", config)
+    return config
+  } catch (error) {
+    console.log("Failed to load config:", error)
     return {}
   }
 }
@@ -27,11 +30,17 @@ class ConfigStore {
   get() {
     return this.config || {}
   }
+  
+  reload() {
+    this.config = getConfig()
+    return this.config
+  }
 
   save(config: Config) {
     this.config = config
     fs.mkdirSync(dataFolder, { recursive: true })
     fs.writeFileSync(configPath, JSON.stringify(config))
+    console.log("Config saved:", config)
   }
 }
 

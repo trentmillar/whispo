@@ -15,7 +15,7 @@ import {
 import { RendererHandlers } from "./renderer-handlers"
 import { configStore } from "./config"
 
-type WINDOW_ID = "main" | "panel" | "setup"
+type WINDOW_ID = "main" | "panel" | "setup" | "overlay"
 
 export const WINDOWS = new Map<WINDOW_ID, BrowserWindow>()
 
@@ -224,4 +224,48 @@ export const stopRecordingAndHidePanelWindow = () => {
       win.hide()
     }
   }
+}
+
+export function createOverlayWindow() {
+  const win = createBaseWindow({
+    id: "overlay",
+    url: "/overlay",
+    showWhenReady: false,
+    windowOptions: {
+      width: 700,
+      height: 500,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      resizable: false,
+      center: true,
+      skipTaskbar: true,
+      hiddenInMissionControl: true,
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.mjs"),
+        sandbox: false,
+      },
+    },
+  })
+
+  return win
+}
+
+export function showOverlayWindow(data: { question: string; response: string }) {
+  let win = WINDOWS.get("overlay")
+  if (!win) {
+    win = createOverlayWindow()
+    win.webContents.once("did-finish-load", () => {
+      // Add a small delay to ensure the React component is mounted
+      setTimeout(() => {
+        getRendererHandlers<RendererHandlers>(win!.webContents).showOverlay.send(data)
+      }, 100)
+    })
+  } else {
+    // Window already exists and is loaded, send the data immediately
+    getRendererHandlers<RendererHandlers>(win.webContents).showOverlay.send(data)
+  }
+  
+  win.show()
+  win.focus()
 }

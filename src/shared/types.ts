@@ -5,6 +5,7 @@ export type RecordingHistoryItem = {
   createdAt: number
   duration: number
   transcript: string
+  aiResponse?: string
 }
 
 export type Config = {

@@ -5,14 +5,17 @@ import { configStore } from "./config"
 export async function postProcessTranscript(transcript: string) {
   const config = configStore.get()
 
-  if (
-    !config.transcriptPostProcessingEnabled ||
-    !config.transcriptPostProcessingPrompt
-  ) {
+
+  if (!config.transcriptPostProcessingEnabled) {
+    console.log("Post-processing disabled, returning original transcript")
     return transcript
   }
 
-  const prompt = config.transcriptPostProcessingPrompt.replace(
+  // Use default prompt if none is set
+  const defaultPrompt = "Answer the following question: {transcript}"
+  const promptToUse = config.transcriptPostProcessingPrompt || defaultPrompt
+
+  const prompt = promptToUse.replace(
     "{transcript}",
     transcript,
   )
@@ -36,16 +39,20 @@ export async function postProcessTranscript(transcript: string) {
       ? config.groqBaseUrl || "https://api.groq.com/openai/v1"
       : config.openaiBaseUrl || "https://api.openai.com/v1"
 
-  const chatResponse = await fetch(`${chatBaseUrl}/chat/completions`, {
+  const apiKey = chatProviderId === "groq" ? config.groqApiKey : config.openaiApiKey
+  const model = chatProviderId === "groq" ? "llama-3.1-8b-instant" : "gpt-4o-mini"
+  const chatUrl = `${chatBaseUrl}/chat/completions`
+  
+
+  const chatResponse = await fetch(chatUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${chatProviderId === "groq" ? config.groqApiKey : config.openaiApiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       temperature: 0,
-      model:
-        chatProviderId === "groq" ? "llama-3.1-70b-versatile" : "gpt-4o-mini",
+      model,
       messages: [
         {
           role: "system",
