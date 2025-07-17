@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/build-rs.sh:*)",
+      "Bash(chmod:*)"
+    ],
+    "deny": []
+  }
+}

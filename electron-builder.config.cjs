@@ -2,8 +2,8 @@
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: "app.whispo",
-  productName: "Whispo",
+  appId: "app.whisper-copilot",
+  productName: "Whisper Copilot",
   directories: {
     buildResources: "build",
   },
@@ -22,7 +22,7 @@ module.exports = {
   ],
   asarUnpack: ["resources/**", "node_modules/**"],
   win: {
-    executableName: "whispo",
+    executableName: "whisper",
   },
   nsis: {
     artifactName: "${name}-${version}-setup.${ext}",
@@ -72,8 +72,8 @@ module.exports = {
   npmRebuild: false,
   publish: {
     provider: "github",
-    owner: "egoist",
-    repo: "whispo",
+    owner: "trentmillar",
+    repo: "whisper-copilot",
   },
   removePackageScripts: true,
 }

@@ -71,7 +71,7 @@ export function Component() {
 
       if (!isConfirmedRef.current) return
 
-      playSound("end_record")
+      // playSound("end_record")
       transcribeMutation.mutate({
         blob,
         duration,

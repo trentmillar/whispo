@@ -2,6 +2,16 @@
 
 AI-powered dictation tool.
 
+## Build / Run
+
+ You need to install Rust and Cargo first. The app has a Rust component
+  (whispo-rs) that handles keyboard events. To fix this:
+
+  1. Install Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs
+  | sh
+  2. Run ./scripts/build-rs.sh to build the binary
+  3. Then run your Electron app
+
 ## Download
 
 Currently building for macOS (Apple Silicon) and Windows x64.
