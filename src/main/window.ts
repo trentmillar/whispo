@@ -241,12 +241,24 @@ export function createOverlayWindow() {
       center: true,
       skipTaskbar: true,
       hiddenInMissionControl: true,
+      hasShadow: true,
+      roundedCorners: true,
+      fullscreenable: false,
+      maximizable: false,
+      minimizable: false,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.mjs"),
         sandbox: false,
       },
     },
   })
+
+  // Set the window level to floating window to ensure it stays on top
+  if (process.platform === 'darwin') {
+    win.setAlwaysOnTop(true, 'floating')
+  } else {
+    win.setAlwaysOnTop(true, 'pop-up-menu')
+  }
 
   return win
 }
@@ -266,6 +278,21 @@ export function showOverlayWindow(data: { question: string; response: string }) 
     getRendererHandlers<RendererHandlers>(win.webContents).showOverlay.send(data)
   }
   
+  // Ensure window is visible on all workspaces (macOS)
+  if (process.platform === 'darwin') {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
+  
+  // Center the window on the current screen
+  win.center()
+  
   win.show()
   win.focus()
+  
+  // Ensure the window stays on top
+  if (process.platform === 'darwin') {
+    win.setAlwaysOnTop(true, 'floating')
+  } else {
+    win.setAlwaysOnTop(true, 'pop-up-menu')
+  }
 }

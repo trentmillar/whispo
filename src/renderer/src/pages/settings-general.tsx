@@ -28,6 +28,7 @@ import {
   DialogTrigger,
 } from "@renderer/components/ui/dialog"
 import { Button } from "@renderer/components/ui/button"
+import { Slider } from "@renderer/components/ui/slider"
 import {
   useConfigQuery,
   useSaveConfigMutation,
@@ -114,6 +115,28 @@ export function Component() {
               <SelectItem value="ctrl-slash">Ctrl+{"/"}</SelectItem>
             </SelectContent>
           </Select>
+        </Control>
+      </ControlGroup>
+
+      <ControlGroup title="Overlay">
+        <Control label="Opacity" className="px-3">
+          <div className="flex items-center gap-3">
+            <Slider
+              min={20}
+              max={100}
+              step={5}
+              value={configQuery.data.overlayOpacity ?? 95}
+              onChange={(e) => {
+                saveConfig({
+                  overlayOpacity: parseInt(e.target.value),
+                })
+              }}
+              className="flex-1"
+            />
+            <span className="text-sm text-neutral-500 dark:text-neutral-400 w-12 text-right">
+              {configQuery.data.overlayOpacity ?? 95}%
+            </span>
+          </div>
         </Control>
       </ControlGroup>
 

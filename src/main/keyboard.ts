@@ -105,13 +105,22 @@ export function listenToKeyboardEvents() {
         isPressedCtrlKey = true
       }
 
-      if (e.data.key === "Escape" && state.isRecording) {
-        const win = WINDOWS.get("panel")
-        if (win) {
-          stopRecordingAndHidePanelWindow()
+      if (e.data.key === "Escape") {
+        // Close overlay if it's open
+        const overlayWin = WINDOWS.get("overlay")
+        if (overlayWin && overlayWin.isVisible()) {
+          getWindowRendererHandlers("overlay")?.closeOverlay.send()
+          return
         }
-
-        return
+        
+        // Stop recording if recording
+        if (state.isRecording) {
+          const win = WINDOWS.get("panel")
+          if (win) {
+            stopRecordingAndHidePanelWindow()
+          }
+          return
+        }
       }
 
       if (configStore.get().shortcut === "ctrl-slash") {

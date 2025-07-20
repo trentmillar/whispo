@@ -10,7 +10,8 @@
       "Bash(true)",
       "Bash(cat:*)",
       "Bash(node:*)",
-      "Bash(ffmpeg:*)"
+      "Bash(ffmpeg:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
