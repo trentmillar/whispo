@@ -12,11 +12,15 @@ export function Component() {
   const saveConfigMutation = useSaveConfigMutation()
 
   const saveConfig = (config: Partial<Config>) => {
+    console.log("Settings UI saveConfig called with:", config)
+    console.log("Current configQuery.data:", configQuery.data)
+    const newConfig = {
+      ...configQuery.data,
+      ...config,
+    }
+    console.log("Merged config to save:", newConfig)
     saveConfigMutation.mutate({
-      config: {
-        ...configQuery.data,
-        ...config,
-      },
+      config: newConfig,
     })
   }
 

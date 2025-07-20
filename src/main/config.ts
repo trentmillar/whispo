@@ -11,8 +11,12 @@ export const configPath = path.join(dataFolder, "config.json")
 
 const getConfig = () => {
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as Config
-    console.log("Loaded config from disk:", config)
+    console.log("Reading config from path:", configPath)
+    const configContent = fs.readFileSync(configPath, "utf8")
+    console.log("Raw config content:", configContent)
+    const config = JSON.parse(configContent) as Config
+    console.log("Parsed config:", config)
+    console.log("Config groqApiKey length:", config.groqApiKey?.length)
     return config
   } catch (error) {
     console.log("Failed to load config:", error)
@@ -32,15 +36,22 @@ class ConfigStore {
   }
   
   reload() {
+    console.log("ConfigStore.reload() called")
+    console.log("Current in-memory config before reload:", this.config)
     this.config = getConfig()
+    console.log("New in-memory config after reload:", this.config)
     return this.config
   }
 
   save(config: Config) {
+    console.log("ConfigStore.save() called with:", JSON.stringify(config, null, 2))
+    console.log("groqApiKey type:", typeof config.groqApiKey)
+    console.log("groqApiKey length:", config.groqApiKey?.length)
     this.config = config
     fs.mkdirSync(dataFolder, { recursive: true })
     fs.writeFileSync(configPath, JSON.stringify(config))
-    console.log("Config saved:", config)
+    console.log("Config saved to:", configPath)
+    console.log("Saved config:", config)
   }
 }
 

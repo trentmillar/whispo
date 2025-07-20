@@ -8,7 +8,9 @@
       "Bash(ls:*)",
       "Bash(pkill:*)",
       "Bash(true)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(ffmpeg:*)"
     ],
     "deny": []
   }
