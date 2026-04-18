@@ -32,6 +32,10 @@ export const router: ReturnType<typeof createBrowserRouter> =
           path: "",
           lazy: () => import("./pages/index"),
         },
+        {
+          path: "upload",
+          lazy: () => import("./pages/upload"),
+        },
       ],
     },
     {

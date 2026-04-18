@@ -232,8 +232,8 @@ export function createOverlayWindow() {
     url: "/overlay",
     showWhenReady: false,
     windowOptions: {
-      width: 700,
-      height: 500,
+      width: 900,
+      height: 600,
       frame: false,
       transparent: true,
       alwaysOnTop: true,

@@ -34,7 +34,7 @@ class ConfigStore {
   get() {
     return this.config || {}
   }
-  
+
   reload() {
     console.log("ConfigStore.reload() called")
     console.log("Current in-memory config before reload:", this.config)

@@ -41,6 +41,55 @@ const saveRecordingsHitory = (history: RecordingHistoryItem[]) => {
   )
 }
 
+const requestTranscriptFromStt = async ({
+  recording,
+  mimeType,
+  fileName,
+}: {
+  recording: ArrayBuffer
+  mimeType: string
+  fileName: string
+}) => {
+  // Reload config to ensure we have the latest provider and API key.
+  const config = configStore.reload()
+
+  const form = new FormData()
+  const blob = new Blob([recording], { type: mimeType })
+  form.append("file", blob, fileName)
+  form.append(
+    "model",
+    config.sttProviderId === "groq" ? "whisper-large-v3-turbo" : "whisper-1",
+  )
+  form.append("response_format", "json")
+
+  const groqBaseUrl = config.groqBaseUrl || "https://api.groq.com/openai/v1"
+  const openaiBaseUrl = config.openaiBaseUrl || "https://api.openai.com/v1"
+
+  const apiKey =
+    config.sttProviderId === "groq" ? config.groqApiKey : config.openaiApiKey
+  const apiUrl =
+    config.sttProviderId === "groq"
+      ? `${groqBaseUrl}/audio/transcriptions`
+      : `${openaiBaseUrl}/audio/transcriptions`
+
+  const transcriptResponse = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: form,
+  })
+
+  if (!transcriptResponse.ok) {
+    const errorText = await transcriptResponse.text()
+    const message = `${transcriptResponse.statusText} ${errorText.slice(0, 300)}`
+    throw new Error(message)
+  }
+
+  const json: { text: string } = await transcriptResponse.json()
+  return json.text
+}
+
 export const router = {
   restartApp: t.procedure.action(async () => {
     app.relaunch()
@@ -153,68 +202,11 @@ export const router = {
     }>()
     .action(async ({ input }) => {
       fs.mkdirSync(recordingsFolder, { recursive: true })
-
-      // Reload config to ensure we have the latest
-      const config = configStore.reload()
-      console.log("STT Config:", {
-        sttProviderId: config.sttProviderId,
-        hasGroqKey: !!config.groqApiKey,
-        hasOpenaiKey: !!config.openaiApiKey
+      const originalTranscript = await requestTranscriptFromStt({
+        recording: input.recording,
+        mimeType: "audio/webm",
+        fileName: "recording.webm",
       })
-      
-      const form = new FormData()
-      const blob = new Blob([input.recording], { type: "audio/webm" })
-      form.append(
-        "file",
-        blob,
-        "recording.webm"
-      )
-      form.append(
-        "model",
-        config.sttProviderId === "groq" ? "whisper-large-v3-turbo" : "whisper-1",
-      )
-      form.append("response_format", "json")
-      
-      console.log("Form data:", {
-        fileSize: blob.size,
-        fileType: blob.type,
-        model: config.sttProviderId === "groq" ? "whisper-large-v3-turbo" : "whisper-1"
-      })
-
-      const groqBaseUrl = config.groqBaseUrl || "https://api.groq.com/openai/v1"
-      const openaiBaseUrl = config.openaiBaseUrl || "https://api.openai.com/v1"
-
-      const apiKey = config.sttProviderId === "groq" ? config.groqApiKey : config.openaiApiKey
-      const apiUrl = config.sttProviderId === "groq"
-        ? `${groqBaseUrl}/audio/transcriptions`
-        : `${openaiBaseUrl}/audio/transcriptions`
-        
-      console.log("Using STT API:", {
-        url: apiUrl,
-        provider: config.sttProviderId,
-        keyLength: apiKey?.length || 0,
-        keyPrefix: apiKey?.substring(0, 10) + "..."
-      })
-
-      const transcriptResponse = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: form,
-      })
-
-      if (!transcriptResponse.ok) {
-        const errorText = await transcriptResponse.text()
-        console.log("Full error response:", errorText)
-        console.log("Response headers:", Object.fromEntries(transcriptResponse.headers.entries()))
-        const message = `${transcriptResponse.statusText} ${errorText.slice(0, 300)}`
-
-        throw new Error(message)
-      }
-
-      const json: { text: string } = await transcriptResponse.json()
-      const originalTranscript = json.text
       const aiResponse = await postProcessTranscript(originalTranscript)
 
       const history = getRecordingHistory()
@@ -259,6 +251,22 @@ export const router = {
           response: aiResponse
         })
       }
+    }),
+
+  transcribeUploadedAudio: t.procedure
+    .input<{
+      audio: ArrayBuffer
+      mimeType?: string
+      fileName?: string
+    }>()
+    .action(async ({ input }) => {
+      const transcript = await requestTranscriptFromStt({
+        recording: input.audio,
+        mimeType: input.mimeType || "audio/webm",
+        fileName: input.fileName || "upload.webm",
+      })
+
+      return { transcript }
     }),
 
   getRecordingHistory: t.procedure.action(async () => getRecordingHistory()),
