@@ -1,4 +1,4 @@
-import { app, Menu } from "electron"
+import { app, Menu, session } from "electron"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
 import {
   createMainWindow,
@@ -21,6 +21,17 @@ registerServeSchema()
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Allow getUserMedia / WebRTC to request camera & mic; otherwise Chromium may deny without a prompt.
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (permission === "media" || permission === "display-capture") {
+        callback(true)
+      } else {
+        callback(false)
+      }
+    },
+  )
+
   // Set app user model id for windows
   electronApp.setAppUserModelId(process.env.APP_ID)
 

@@ -9,6 +9,10 @@ export type RendererHandlers = {
 
   updateAvailable: (e: UpdateDownloadedEvent) => void
   navigate: (url: string) => void
-  showOverlay: (data: { question: string; response: string }) => void
+  showOverlay: (data: {
+    question: string
+    response: string
+    speechDelivery?: string
+  }) => void
   closeOverlay: () => void
 }

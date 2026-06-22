@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Copy, Check, Sparkles } from "lucide-react"
+import { EmotionMirrorBar } from "@renderer/components/emotion-mirror-bar"
 import { Button } from "@renderer/components/ui/button"
 import { rendererHandlers, tipcClient } from "~/lib/tipc-client"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -9,6 +10,7 @@ export function Component() {
   const [overlayData, setOverlayData] = useState<{
     question: string
     response: string
+    speechDelivery?: string
     isLoading: boolean
   }>({ question: "", response: "", isLoading: true })
   
@@ -23,9 +25,11 @@ export function Component() {
   const [opacity, setOpacity] = useState(config?.overlayOpacity ?? 95)
 
   useEffect(() => {
-    const unlistenShow = rendererHandlers.showOverlay.listen(({ question, response }) => {
-      setOverlayData({ question, response, isLoading: false })
-    })
+    const unlistenShow = rendererHandlers.showOverlay.listen(
+      ({ question, response, speechDelivery }) => {
+        setOverlayData({ question, response, speechDelivery, isLoading: false })
+      },
+    )
     
     return unlistenShow
   }, [])
@@ -37,13 +41,18 @@ export function Component() {
   }, [config?.overlayOpacity])
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(overlayData.response)
+    const parts = [overlayData.response, overlayData.speechDelivery].filter(
+      (s) => s && s.trim(),
+    )
+    await navigator.clipboard.writeText(parts.join("\n\n---\n\n"))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   const handleClose = () => {
-    tipcClient.confirmTranscript({ transcript: overlayData.response })
+    tipcClient.confirmTranscript({
+      transcript: overlayData.response?.trim() || overlayData.question,
+    })
   }
   
   const updateOpacity = useCallback(async (newOpacity: number) => {
@@ -87,6 +96,7 @@ export function Component() {
 
   return (
     <div className="fixed inset-0 bg-transparent flex items-center justify-center p-6 pointer-events-none">
+      <EmotionMirrorBar />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -131,10 +141,8 @@ export function Component() {
 
             {/* Content */}
             <div className="flex-1 space-y-4">
-              {/* Title */}
-              <h2 className="text-xl font-semibold text-white">AI Response</h2>
+              <h2 className="text-xl font-semibold text-white">What you said</h2>
 
-              {/* Question */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-400 italic">
@@ -143,20 +151,44 @@ export function Component() {
                 </div>
               </div>
 
-              {/* Response */}
-              <div className="space-y-3">
-                {overlayData.isLoading ? (
-                  <div className="flex items-center space-x-2 py-4">
-                    <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full" />
-                    <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full animation-delay-200" />
-                    <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full animation-delay-400" />
+              {overlayData.speechDelivery ? (
+                <div className="space-y-2 rounded-lg border border-violet-500/25 bg-violet-950/20 p-4">
+                  <h3 className="text-sm font-semibold text-violet-200">
+                    How it may come across (text + pace only)
+                  </h3>
+                  <p className="text-xs text-violet-200/50">
+                    Inferred from your words and speaking rate — not the room or audience.
+                  </p>
+                  <div className="text-gray-200 leading-relaxed whitespace-pre-wrap text-sm">
+                    {overlayData.speechDelivery}
                   </div>
-                ) : (
-                  <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm">
-                    {overlayData.response}
+                </div>
+              ) : null}
+
+              {overlayData.response ? (
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-white">AI response</h2>
+                  <div className="space-y-3">
+                    {overlayData.isLoading ? (
+                      <div className="flex items-center space-x-2 py-4">
+                        <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full" />
+                        <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full animation-delay-200" />
+                        <div className="animate-pulse h-2 w-2 bg-emerald-500 rounded-full animation-delay-400" />
+                      </div>
+                    ) : (
+                      <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm">
+                        {overlayData.response}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : null}
+
+              {!overlayData.isLoading &&
+              !overlayData.response &&
+              !overlayData.speechDelivery ? (
+                <p className="text-sm text-gray-500">No content to show.</p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -165,7 +197,11 @@ export function Component() {
         <div className="px-6 pb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-xs text-gray-500">
-              {overlayData.question?.split(' ').filter(w => w.trim()).length || 0} words • {overlayData.response?.split(' ').filter(w => w.trim()).length || 0} words
+              {overlayData.question?.split(" ").filter((w) => w.trim()).length || 0}{" "}
+              words spoken
+              {overlayData.response
+                ? ` • ${overlayData.response.split(" ").filter((w) => w.trim()).length} words (AI)`
+                : ""}
             </div>
             <div className="text-xs text-gray-500">
               Opacity: {opacity}% • ←/→ adjust
@@ -177,7 +213,11 @@ export function Component() {
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              disabled={!overlayData.response || overlayData.isLoading}
+              disabled={
+                overlayData.isLoading ||
+                (!overlayData.response?.trim() &&
+                  !overlayData.speechDelivery?.trim())
+              }
               className="text-gray-400 hover:text-white hover:bg-white/10"
             >
               {copied ? (

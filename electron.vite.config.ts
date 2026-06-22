@@ -24,5 +24,6 @@ export default defineConfig({
   renderer: {
     define,
     plugins: [tsconfigPaths(), react()],
+    publicDir: resolve("public"),
   },
 })

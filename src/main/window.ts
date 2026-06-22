@@ -4,6 +4,7 @@ import {
   shell,
   screen,
   app,
+  systemPreferences,
 } from "electron"
 import path from "path"
 import { getRendererHandlers } from "@egoist/tipc/main"
@@ -263,7 +264,16 @@ export function createOverlayWindow() {
   return win
 }
 
-export function showOverlayWindow(data: { question: string; response: string }) {
+export function showOverlayWindow(data: {
+  question: string
+  response: string
+  speechDelivery?: string
+}) {
+  // macOS: system camera consent is separate from Chromium; this triggers the TCC prompt when needed.
+  if (process.platform === "darwin") {
+    void systemPreferences.askForMediaAccess("camera")
+  }
+
   let win = WINDOWS.get("overlay")
   if (!win) {
     win = createOverlayWindow()

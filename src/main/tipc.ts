@@ -1,4 +1,5 @@
 import fs from "fs"
+import { execFile } from "node:child_process"
 import { getRendererHandlers, tipc } from "@egoist/tipc/main"
 import { showPanelWindow, WINDOWS, showOverlayWindow } from "./window"
 import {
@@ -10,16 +11,106 @@ import {
   dialog,
 } from "electron"
 import path from "path"
+import { promisify } from "node:util"
 import { configStore, recordingsFolder } from "./config"
 import { Config, RecordingHistoryItem } from "../shared/types"
 import { RendererHandlers } from "./renderer-handlers"
+import { analyzeSpeechDeliveryInsight } from "./delivery-insight"
 import { postProcessTranscript } from "./llm"
 import { state } from "./state"
 import { updateTrayIcon } from "./tray"
 import { isAccessibilityGranted } from "./utils"
-import { writeText } from "./keyboard"
 
 const t = tipc.create()
+const STT_MAX_UPLOAD_BYTES = 24 * 1024 * 1024
+const STT_SEGMENT_SECONDS = 8 * 60
+const STT_SEGMENT_MIME_TYPE = "audio/webm"
+const execFileAsync = promisify(execFile)
+
+const formatMegabytes = (bytes: number) => {
+  return (bytes / (1024 * 1024)).toFixed(1)
+}
+
+const getSttTooLargeMessage = (actualBytes: number) => {
+  return `Audio file is too large (${formatMegabytes(actualBytes)} MB). Please use a file smaller than ${formatMegabytes(STT_MAX_UPLOAD_BYTES)} MB or split/compress it before uploading.`
+}
+
+const getSttChunkingFailedMessage = () => {
+  return "Audio file is too large and could not be chunked automatically. Please install ffmpeg or split/compress the file and try again."
+}
+
+const toArrayBuffer = (buffer: Buffer) => {
+  return buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength,
+  ) as ArrayBuffer
+}
+
+const splitAudioIntoTranscribableChunks = async ({
+  recording,
+  fileName,
+}: {
+  recording: ArrayBuffer
+  fileName: string
+}) => {
+  const tempDir = fs.mkdtempSync(path.join(app.getPath("temp"), "whispo-stt-"))
+  const inputExtension = path.extname(fileName || "").trim() || ".audio"
+  const inputPath = path.join(tempDir, `upload${inputExtension}`)
+  const chunkPattern = path.join(tempDir, "chunk-%03d.webm")
+
+  try {
+    fs.writeFileSync(inputPath, Buffer.from(recording))
+
+    await execFileAsync("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      inputPath,
+      "-map",
+      "0:a:0",
+      "-c:a",
+      "libopus",
+      "-b:a",
+      "24k",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      "-f",
+      "segment",
+      "-segment_time",
+      `${STT_SEGMENT_SECONDS}`,
+      "-reset_timestamps",
+      "1",
+      chunkPattern,
+    ])
+  } catch {
+    throw new Error(getSttChunkingFailedMessage())
+  }
+
+  try {
+    const chunkFiles = fs
+      .readdirSync(tempDir)
+      .filter((name) => name.startsWith("chunk-") && name.endsWith(".webm"))
+      .sort((a, b) => a.localeCompare(b))
+
+    if (chunkFiles.length === 0) {
+      throw new Error(getSttChunkingFailedMessage())
+    }
+
+    return chunkFiles.map((chunkFile) => {
+      const chunkBuffer = fs.readFileSync(path.join(tempDir, chunkFile))
+      return {
+        recording: toArrayBuffer(chunkBuffer),
+        fileName: chunkFile,
+        mimeType: STT_SEGMENT_MIME_TYPE,
+      }
+    })
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  }
+}
 
 const getRecordingHistory = () => {
   try {
@@ -50,6 +141,10 @@ const requestTranscriptFromStt = async ({
   mimeType: string
   fileName: string
 }) => {
+  if (recording.byteLength > STT_MAX_UPLOAD_BYTES) {
+    throw new Error(getSttTooLargeMessage(recording.byteLength))
+  }
+
   // Reload config to ensure we have the latest provider and API key.
   const config = configStore.reload()
 
@@ -82,6 +177,13 @@ const requestTranscriptFromStt = async ({
 
   if (!transcriptResponse.ok) {
     const errorText = await transcriptResponse.text()
+    const providerRejectedAsTooLarge =
+      transcriptResponse.status === 413 ||
+      errorText.includes("request_too_large") ||
+      errorText.includes("Request Entity Too Large")
+    if (providerRejectedAsTooLarge) {
+      throw new Error(getSttTooLargeMessage(recording.byteLength))
+    }
     const message = `${transcriptResponse.statusText} ${errorText.slice(0, 300)}`
     throw new Error(message)
   }
@@ -207,7 +309,10 @@ export const router = {
         mimeType: "audio/webm",
         fileName: "recording.webm",
       })
-      const aiResponse = await postProcessTranscript(originalTranscript)
+      const [aiResponse, speechDelivery] = await Promise.all([
+        postProcessTranscript(originalTranscript),
+        analyzeSpeechDeliveryInsight(originalTranscript, input.duration),
+      ])
 
       const history = getRecordingHistory()
       const item: RecordingHistoryItem = {
@@ -238,17 +343,14 @@ export const router = {
         panel.hide()
       }
 
-      // Copy and paste the original transcript (not the AI response)
-      clipboard.writeText(originalTranscript)
-      if (isAccessibilityGranted()) {
-        await writeText(originalTranscript)
-      }
-
-      // If there's an AI response, show the overlay automatically
-      if (aiResponse && aiResponse !== originalTranscript) {
+      const hasDistinctAi =
+        Boolean(aiResponse) && aiResponse !== originalTranscript
+      const hasDelivery = Boolean(speechDelivery?.trim())
+      if (hasDistinctAi || hasDelivery) {
         showOverlayWindow({
           question: originalTranscript,
-          response: aiResponse
+          response: hasDistinctAi ? aiResponse : "",
+          speechDelivery: hasDelivery ? speechDelivery : undefined,
         })
       }
     }),
@@ -260,11 +362,38 @@ export const router = {
       fileName?: string
     }>()
     .action(async ({ input }) => {
-      const transcript = await requestTranscriptFromStt({
-        recording: input.audio,
-        mimeType: input.mimeType || "audio/webm",
-        fileName: input.fileName || "upload.webm",
-      })
+      const mimeType = input.mimeType || "audio/webm"
+      const fileName = input.fileName || "upload.webm"
+      const isLargeUpload = input.audio.byteLength > STT_MAX_UPLOAD_BYTES
+
+      const transcript = isLargeUpload
+        ? (
+            await (async () => {
+              const chunks = await splitAudioIntoTranscribableChunks({
+                recording: input.audio,
+                fileName,
+              })
+              const parts: string[] = []
+              for (const chunk of chunks) {
+                parts.push(
+                  await requestTranscriptFromStt({
+                    recording: chunk.recording,
+                    mimeType: chunk.mimeType,
+                    fileName: chunk.fileName,
+                  }),
+                )
+              }
+              return parts
+            })()
+          )
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join(" ")
+        : await requestTranscriptFromStt({
+            recording: input.audio,
+            mimeType,
+            fileName,
+          })
 
       return { transcript }
     }),
@@ -308,25 +437,24 @@ export const router = {
 
   confirmTranscript: t.procedure
     .input<{ transcript: string }>()
-    .action(async ({ input }) => {
+    .action(async () => {
       const overlay = WINDOWS.get("overlay")
       if (overlay) {
         overlay.hide()
       }
-
-      // paste
-      clipboard.writeText(input.transcript)
-      if (isAccessibilityGranted()) {
-        await writeText(input.transcript)
-      }
     }),
 
   showAiResponse: t.procedure
-    .input<{ question: string; response: string }>()
+    .input<{
+      question: string
+      response: string
+      speechDelivery?: string
+    }>()
     .action(async ({ input }) => {
       showOverlayWindow({
         question: input.question,
-        response: input.response
+        response: input.response,
+        speechDelivery: input.speechDelivery,
       })
     }),
 }
