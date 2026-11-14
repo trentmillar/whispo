@@ -1,6 +1,6 @@
 {
-  "name": "whisper copilot",
-  "version": "0.1.0",
+  "name": "whispo",
+  "version": "0.2.0",
   "type": "module",
   "description": "Discrete AI powered copilot for your meetings and interviews",
   "main": "./out/main/index.js",
