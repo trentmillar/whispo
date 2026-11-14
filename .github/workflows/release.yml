@@ -54,11 +54,8 @@ jobs:
       - name: Release
         run: pnpm run release
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
           GITHUB_TOKEN: ${{ secrets.GH_PUBLISH_TOKEN }}
           # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false
+          # Skip code signing / notarization (no CSC_* or APPLE_* secrets configured)
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
