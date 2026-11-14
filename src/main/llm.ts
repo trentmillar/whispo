@@ -45,7 +45,7 @@ export async function postProcessTranscript(transcript: string) {
     body: JSON.stringify({
       temperature: 0,
       model:
-        chatProviderId === "groq" ? "llama-3.1-70b-versatile" : "gpt-4o-mini",
+        chatProviderId === "groq" ? "openai/gpt-oss-120b" : "gpt-4o-mini",
       messages: [
         {
           role: "system",
