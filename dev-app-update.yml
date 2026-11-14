@@ -1,4 +1,4 @@
 provider: github
 owner: trentmillar
-repo: whisper-copilot
-updaterCacheDirName: desktop-updater-whisper-copilot
+repo: whispo
+updaterCacheDirName: desktop-updater-whispo

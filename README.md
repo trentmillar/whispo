@@ -18,7 +18,7 @@ This is [Trent Millar](https://github.com/trentmillar)’s maintained version of
 
 Currently building for macOS (Apple Silicon) and Windows x64.
 
-[Releases](https://github.com/egoist/whispo/releases/latest)
+[Releases](https://github.com/trentmillar/whispo/releases/latest)
 
 ## Preview
 
