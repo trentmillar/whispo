@@ -73,7 +73,7 @@ module.exports = {
   publish: {
     provider: "github",
     owner: "trentmillar",
-    repo: "whisper-copilot",
+    repo: "whispo",
   },
   removePackageScripts: true,
 }
