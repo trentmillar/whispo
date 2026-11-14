@@ -2,6 +2,8 @@
 
 AI-powered dictation tool.
 
+This is [Trent Millar](https://github.com/trentmillar)’s maintained version of Whispo, based on the original project by [EGOIST](https://github.com/egoist/whispo).
+
 ## Build / Run
 
  You need to install Rust and Cargo first. The app has a Rust component
