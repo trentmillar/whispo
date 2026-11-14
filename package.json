@@ -1,6 +1,6 @@
 {
   "name": "whispo",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Discrete AI powered copilot for your meetings and interviews",
   "main": "./out/main/index.js",
