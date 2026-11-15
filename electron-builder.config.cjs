@@ -33,6 +33,10 @@ module.exports = {
   mac: {
     binaries: [`resources/bin/whispo-rs${process.platform === 'darwin' ? '' : '.exe'}`],
     artifactName: "${productName}-${version}-${arch}.${ext}",
+    category: "public.app-category.productivity",
+    hardenedRuntime: true,
+    gatekeeperAssess: false,
+    entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.plist",
     extendInfo: [
       {
@@ -52,6 +56,7 @@ module.exports = {
           "Application requests access to the user's Downloads folder.",
       },
     ],
+    // Requires APPLE_TEAM_ID + APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD in CI
     notarize: process.env.APPLE_TEAM_ID
       ? {
           teamId: process.env.APPLE_TEAM_ID,

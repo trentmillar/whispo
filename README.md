@@ -16,9 +16,34 @@ This is [Trent Millar](https://github.com/trentmillar)’s maintained version of
 
 ## Download
 
-Currently building for macOS (Apple Silicon) and Windows x64.
+Currently building for macOS (Apple Silicon).
 
 [Releases](https://github.com/trentmillar/whispo/releases/latest)
+
+### macOS: “app is damaged” / can’t be opened
+
+Release builds are **not code-signed or notarized**. Gatekeeper may say the app is damaged or was moved to Trash — that is a quarantine warning, not a corrupt download.
+
+**Fix after downloading the `.dmg` / `.zip`:**
+
+1. Open **Terminal**.
+2. Clear the quarantine flag (adjust the path if you put the app somewhere else):
+
+```bash
+sudo xattr -cr /Applications/Whispo.app
+```
+
+If it is still in Downloads / the mounted DMG:
+
+```bash
+xattr -cr ~/Downloads/Whispo*.dmg
+# or, after dragging Whispo.app out of the DMG:
+xattr -cr /path/to/Whispo.app
+```
+
+3. Open **Whispo.app** again (double-click, or right-click → **Open**).
+
+Alternative without Terminal: **System Settings → Privacy & Security**, scroll to the blocked-app message, and choose **Open Anyway** when macOS offers it.
 
 ## Preview
 
